@@ -301,10 +301,13 @@ public class Wallet extends Applet {
         // the PIN data is read into the APDU buffer
         // at the offset ISO7816.OFFSET_CDATA
         // the PIN data length = byteRead
+        buffer[0] = 1;
         if (pin.check(buffer, ISO7816.OFFSET_CDATA, byteRead) == false) {
             ISOException.throwIt(SW_VERIFICATION_FAILED);
+            buffer[0] = 0;
         }
 
+        apdu.setOutgoingAndSend((short) 0, (short) 1);
     } // end of validate method
     
     private void verifyEncrypted(APDU apdu) {
@@ -321,18 +324,20 @@ public class Wallet extends Applet {
         Cipher cipher = Cipher.getInstance(Cipher.ALG_AES_BLOCK_128_CBC_NOPAD, false);
        
         cipher.init(key, Cipher.MODE_DECRYPT, pin_iv, (short) 0, (short) 16);
-        cipher.doFinal(buffer, ISO7816.OFFSET_CDATA, (short) 16, buffer, (short) 0);
-        
-        apdu.setOutgoingAndSend((short) 0, (short) 5);
+        cipher.doFinal(buffer, ISO7816.OFFSET_CDATA, (short) 16, buffer, (short) 1);
         
         // check pin
         // the PIN data is read into the APDU buffer
         // at the offset ISO7816.OFFSET_CDATA
         // the PIN data length = byteRead
-        if (pin.check(buffer, (short) 0, (byte) 5) == false) {
+        buffer[0] = 1;
+        if (pin.check(buffer, (short) 1, (byte) 5) == false) {
             ISOException.throwIt(SW_VERIFICATION_FAILED);
+            buffer[0] = 0;
         }
-
+        
+        apdu.setOutgoingAndSend((short) 0, (short) 6);
+        
     } // end of validate method
     
 

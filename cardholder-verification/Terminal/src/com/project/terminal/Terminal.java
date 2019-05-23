@@ -30,20 +30,30 @@ public class Terminal {
     
     private static String cap_path = "..\\CardApplet\\apdu_scripts\\cap-com.project.wallet.script";
     
+    private static byte TRANSACTION_DEBIT = 0x01;
+    private static byte TRANSACTION_CREDIT = 0x02;
+    
     private static byte[] balanceBytes = new byte[2];
     private static short balance = 0;
     
     private static byte[] cvmCodes = new byte[8];
-    private static byte[] pin = new byte[] {(byte) 0x01, (byte) 0x02, (byte) 0x03, (byte) 0x04, (byte) 0x05};
+    private static byte[] pinCorrect = new byte[] {(byte) 0x01, (byte) 0x02, (byte) 0x03, (byte) 0x04, (byte) 0x05};
+    private static byte[] pinWrong = new byte[] {(byte) 0x02, (byte) 0x02, (byte) 0x03, (byte) 0x04, (byte) 0x05};
     private static byte[] key = "ana_are_farfurii".getBytes(); // idk men ran out of ideas
 
 	public static void main(String[] args) {
 		System.out.println("Terminal starting...");
 		
 		Terminal terminal = new Terminal();
-		
 		Security.addProvider(new BouncyCastleProvider());
 		
+		// caseOne(terminal);
+		caseTwo(terminal);
+        
+        System.out.println("Exiting...");
+	}
+	
+	private static void caseOne(Terminal terminal) {
 		try {
 			establishConnection();
 			powerUp();
@@ -57,9 +67,9 @@ public class Terminal {
 			terminal.exchangeApdu(terminal.selectWallet());
 			
 			System.out.println("Verifying PIN plain text...");
-			terminal.exchangeApdu(terminal.verifyPIN());
+			terminal.exchangeApdu(terminal.verifyPIN(pinCorrect));
 			System.out.println("Verifying PIN encrypted...");
-			terminal.exchangeApdu(terminal.verifyEncryptedPIN());
+			terminal.exchangeApdu(terminal.verifyEncryptedPIN(pinCorrect));
 			System.out.println("Getting balance...");
 			terminal.exchangeApdu(terminal.getBalance());
 			
@@ -67,19 +77,19 @@ public class Terminal {
 			cvmCodes = terminal.exchangeApdu(terminal.getCVM());
 
 			System.out.println("Debit 100$ (should fail)...");
-			terminal.exchangeApdu(terminal.debit((short) 100));
+			terminal.makeTransaction(TRANSACTION_DEBIT, (short) 100, pinCorrect);
 
 			System.out.println("Verifying PIN plain text...");
-			terminal.exchangeApdu(terminal.verifyPIN());
+			terminal.exchangeApdu(terminal.verifyPIN(pinCorrect));
 			System.out.println("Credit 200$...");
-			terminal.exchangeApdu(terminal.credit((short) 200));
+			terminal.makeTransaction(TRANSACTION_CREDIT, (short) 200, pinCorrect);
 			System.out.println("Getting balance...");
 			balanceBytes = terminal.exchangeApdu(terminal.getBalance());
 			balance = (short) ((balanceBytes[0] & 0xFF) << 8 | (balanceBytes[1] & 0xFF));
 			System.out.println("Current balance: " + Short.toString(balance));
 
 			System.out.println("Debit 100$...");
-			terminal.exchangeApdu(terminal.debit((short) 100));
+			terminal.makeTransaction(TRANSACTION_DEBIT, (short) 100, pinCorrect);
 			System.out.println("Getting balance...");
 			balanceBytes = terminal.exchangeApdu(terminal.getBalance());
 			balance = (short) ((balanceBytes[0] & 0xFF) << 8 | (balanceBytes[1] & 0xFF));
@@ -90,8 +100,95 @@ public class Terminal {
 			System.out.println("Caught exception");
 			System.out.println(e.getMessage());
 		}
-        
-        System.out.println("Exiting...");
+	}
+	
+	private static void caseTwo(Terminal terminal) {
+		try {
+			establishConnection();
+			powerUp();
+			
+			////// Part 1
+			
+			System.out.println("Executing cap file...");
+			executeCap();
+			
+			System.out.println("Creating applet...");
+			terminal.exchangeApdu(terminal.createApplet());
+			System.out.println("Selecting wallet...");
+			terminal.exchangeApdu(terminal.selectWallet());
+			
+			System.out.println("Verifying PIN plain text...");
+			terminal.exchangeApdu(terminal.verifyPIN(pinCorrect));
+			System.out.println("Verifying PIN encrypted...");
+			terminal.exchangeApdu(terminal.verifyEncryptedPIN(pinCorrect));
+			
+			System.out.println("Credit 300$...");
+			terminal.makeTransaction(TRANSACTION_CREDIT, (short) 300, pinCorrect);
+			
+			System.out.println("Getting balance...");
+			terminal.exchangeApdu(terminal.getBalance());
+			
+			System.out.println("Getting CVM codes...");
+			cvmCodes = terminal.exchangeApdu(terminal.getCVM());
+			
+			////////////////////////////////////////////////////////////////////////////////////////
+			
+			////// Part 2
+			
+			System.out.println("Credit 25$...");
+			terminal.makeTransaction(TRANSACTION_CREDIT, (short) 25, pinCorrect);
+			
+			System.out.println("Getting balance...");
+			balanceBytes = terminal.exchangeApdu(terminal.getBalance());
+			balance = (short) ((balanceBytes[0] & 0xFF) << 8 | (balanceBytes[1] & 0xFF));
+			System.out.println("Current balance: " + Short.toString(balance));
+			
+			
+			System.out.println("Debit 60$...");
+			terminal.makeTransaction(TRANSACTION_DEBIT, (short) 60, pinCorrect);
+			
+			System.out.println("Getting balance...");
+			balanceBytes = terminal.exchangeApdu(terminal.getBalance());
+			balance = (short) ((balanceBytes[0] & 0xFF) << 8 | (balanceBytes[1] & 0xFF));
+			System.out.println("Current balance: " + Short.toString(balance));
+			
+			
+			System.out.println("Debit 60$...");
+			terminal.makeTransaction(TRANSACTION_DEBIT, (short) 60, pinWrong);
+			
+			System.out.println("Getting balance...");
+			balanceBytes = terminal.exchangeApdu(terminal.getBalance());
+			balance = (short) ((balanceBytes[0] & 0xFF) << 8 | (balanceBytes[1] & 0xFF));
+			System.out.println("Current balance: " + Short.toString(balance));
+			
+			////////////////////////////////////////////////////////////////////////////////////////
+			
+			////// Part 3
+			
+			System.out.println("Debit 120$...");
+			terminal.makeTransaction(TRANSACTION_DEBIT, (short) 120, pinCorrect);
+			
+			System.out.println("Getting balance...");
+			balanceBytes = terminal.exchangeApdu(terminal.getBalance());
+			balance = (short) ((balanceBytes[0] & 0xFF) << 8 | (balanceBytes[1] & 0xFF));
+			System.out.println("Current balance: " + Short.toString(balance));
+			
+			
+			System.out.println("Debit 120$...");
+			terminal.makeTransaction(TRANSACTION_DEBIT, (short) 120, pinWrong);
+			
+			System.out.println("Getting balance...");
+			balanceBytes = terminal.exchangeApdu(terminal.getBalance());
+			balance = (short) ((balanceBytes[0] & 0xFF) << 8 | (balanceBytes[1] & 0xFF));
+			System.out.println("Current balance: " + Short.toString(balance));
+
+			////////////////////////////////////////////////////////////////////////////////////////
+			
+			powerDown();
+		} catch (Exception e) {
+			System.out.println("Caught exception");
+			System.out.println(e.getMessage());
+		}
 	}
 
 	private static void establishConnection() throws IOException{
@@ -204,20 +301,23 @@ public class Terminal {
 		return apdu;
 	}
 	
-	private Apdu verifyPIN() {
+	private Apdu verifyPIN(byte[] pin) {
 		Apdu apdu = new Apdu();
 
 		apdu.command = new byte[] {(byte) 0x80, (byte) 0x20, (byte) 0x00, (byte) 0x00};
 		
 		apdu.Lc = (byte) 0x05;
 		apdu.dataIn = pin;
-		 	
+		
 		apdu.setDataIn(apdu.dataIn, apdu.Lc);
+		
+		apdu.Le = (byte) 0x01;
+		
 		return apdu;
 	}
 	
-	private Apdu verifyEncryptedPIN() throws GeneralSecurityException {
-		byte[] encryptedPIN = ecbEncryptPIN();
+	private Apdu verifyEncryptedPIN(byte[] pin) throws GeneralSecurityException {
+		byte[] encryptedPIN = cbcEncryptPIN(pin);
 		Apdu apdu = new Apdu();
 
 		apdu.command = new byte[] {(byte) 0x80, (byte) 0x10, (byte) 0x00, (byte) 0x00};
@@ -227,12 +327,12 @@ public class Terminal {
 		 	
 		apdu.setDataIn(apdu.dataIn, apdu.Lc);
 		
-		apdu.Le = (byte) 0x05;
+		apdu.Le = (byte) 0x06;
 		
 		return apdu;
 	}
 	
-	 public byte[] ecbEncryptPIN() throws GeneralSecurityException {
+	 public byte[] cbcEncryptPIN(byte[] pin) throws GeneralSecurityException {
 		byte[] initialValues = new byte[16];
 		Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
 		
@@ -295,5 +395,46 @@ public class Terminal {
 
 		apdu.setDataIn(apdu.dataIn, apdu.Lc);
 		return apdu;
+	}
+	
+	private byte[] makeTransaction(byte type, short amount, byte[] pin) throws CadTransportException, IOException, GeneralSecurityException {
+		if (type == TRANSACTION_CREDIT) {
+			return exchangeApdu(credit(amount));
+		}
+		
+		byte rule = getRule(amount);
+		byte[] output;
+		
+		switch (rule) {
+		case 0x01:
+			return exchangeApdu(debit(amount));
+		case 0x02:
+			exchangeApdu(verifyPIN(pin));
+			return exchangeApdu(debit(amount));
+		case 0x03:
+			exchangeApdu(verifyEncryptedPIN(pin));
+			return exchangeApdu(debit(amount));
+		default:
+			System.out.println("Something's wrong lol");	
+		}
+		return null;
+	}
+	
+	private byte getRule(short amount) {
+		byte rule = 0;
+		for (int i = 0; i < cvmCodes.length; i += 3) {
+			if (amount >= (short) cvmCodes[i + 1]) {
+				if (cvmCodes[i] == 0x03) { // last rule
+					rule = cvmCodes[i];
+					break;
+				}
+				
+				if (amount < (short) cvmCodes[i + 2]) {
+					rule = cvmCodes[i];
+					break; 
+				}
+			}
+		}
+		return rule;
 	}
 }

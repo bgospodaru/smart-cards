@@ -1,5 +1,5 @@
 // converted by version  [v3.1.0]
-// on Fri May 24 01:47:44 EEST 2019
+// on Fri May 24 02:32:02 EEST 2019
 
 .package com/project/wallet {
 	.aid 0xA0:0x0:0x0:0x0:0x62:0x3:0x1:0xC:0x6;
@@ -82,21 +82,21 @@
 		// 25
 		virtualMethodRef 0.9.1([BSB)Z;		// check([BSB)Z
 		// 26
+		virtualMethodRef 0.10.8(SS)V;		// setOutgoingAndSend(SS)V
+		// 27
 		staticMethodRef Wallet/buildKey()Ljavacard/security/Key;;
 			.descriptor	Ljavacard/security/Key;	1.0;
 
-		// 27
+		// 28
 		staticMethodRef 2.1.0(BZ)Ljavacardx/crypto/Cipher;;		// javacardx/crypto/Cipher.getInstance(BZ)Ljavacardx/crypto/Cipher;
 			.descriptor	Ljavacardx/crypto/Cipher;	2.1;
 
-		// 28
+		// 29
 		virtualMethodRef 2.1.4(Ljavacard/security/Key;B[BSS)V;		// init(Ljavacard/security/Key;B[BSS)V
 			.descriptor	Ljavacard/security/Key;	1.0;
 
-		// 29
-		virtualMethodRef 2.1.1([BSS[BS)S;		// doFinal([BSS[BS)S
 		// 30
-		virtualMethodRef 0.10.8(SS)V;		// setOutgoingAndSend(SS)V
+		virtualMethodRef 2.1.1([BSS[BS)S;		// doFinal([BSS[BS)S
 		// 31
 		staticMethodRef 1.13.0(BSZ)Ljavacard/security/Key;;		// javacard/security/KeyBuilder.buildKey(BSZ)Ljavacard/security/Key;
 			.descriptor	Ljavacard/security/Key;	1.0;
@@ -487,7 +487,11 @@
 					invokevirtual 20;		// setIncomingAndReceive()S
 					s2b;
 					sstore_3;
-				L2:	getfield_a_this 0;		// reference com/project/wallet/Wallet.pin
+				L2:	aload_2;
+					sconst_0;
+					sconst_1;
+					bastore;
+					getfield_a_this 0;		// reference com/project/wallet/Wallet.pin
 					aload_2;
 					sconst_5;
 					sload_3;
@@ -495,7 +499,15 @@
 					ifne L4;
 				L3:	sspush 25344;
 					invokestatic 12;		// javacard/framework/ISOException.throwIt(S)V
-				L4:	return;
+					aload_2;
+					sconst_0;
+					sconst_0;
+					bastore;
+				L4:	aload_1;
+					sconst_0;
+					sconst_1;
+					invokevirtual 26;		// setOutgoingAndSend(SS)V
+					return;
 		}
 
 		.method private verifyEncrypted(Ljavacard/framework/APDU;)V {
@@ -520,11 +532,11 @@
 				L4:	sspush 25344;
 					invokestatic 12;		// javacard/framework/ISOException.throwIt(S)V
 				L5:	aload_0;
-					invokespecial 26;		// com/project/wallet/Wallet.buildKey()Ljavacard/security/Key;
+					invokespecial 27;		// com/project/wallet/Wallet.buildKey()Ljavacard/security/Key;
 					astore 5;
 				L6:	bspush 13;
 					sconst_0;
-					invokestatic 27;		// javacardx/crypto/Cipher.getInstance(BZ)Ljavacardx/crypto/Cipher;
+					invokestatic 28;		// javacardx/crypto/Cipher.getInstance(BZ)Ljavacardx/crypto/Cipher;
 					astore 6;
 				L7:	aload 6;
 					aload 5;
@@ -532,28 +544,36 @@
 					aload_2;
 					sconst_0;
 					bspush 16;
-					invokevirtual 28;		// init(Ljavacard/security/Key;B[BSS)V
+					invokevirtual 29;		// init(Ljavacard/security/Key;B[BSS)V
 					aload 6;
 					aload_3;
 					sconst_5;
 					bspush 16;
 					aload_3;
-					sconst_0;
-					invokevirtual 29;		// doFinal([BSS[BS)S
+					sconst_1;
+					invokevirtual 30;		// doFinal([BSS[BS)S
 					pop;
-					aload_1;
-					sconst_0;
-					sconst_5;
-					invokevirtual 30;		// setOutgoingAndSend(SS)V
-					getfield_a_this 0;		// reference com/project/wallet/Wallet.pin
 					aload_3;
 					sconst_0;
+					sconst_1;
+					bastore;
+					getfield_a_this 0;		// reference com/project/wallet/Wallet.pin
+					aload_3;
+					sconst_1;
 					sconst_5;
 					invokevirtual 25;		// check([BSB)Z
 					ifne L9;
 				L8:	sspush 25344;
 					invokestatic 12;		// javacard/framework/ISOException.throwIt(S)V
-				L9:	return;
+					aload_3;
+					sconst_0;
+					sconst_0;
+					bastore;
+				L9:	aload_1;
+					sconst_0;
+					bspush 6;
+					invokevirtual 26;		// setOutgoingAndSend(SS)V
+					return;
 		}
 
 		.method private getCVM(Ljavacard/framework/APDU;)V {
