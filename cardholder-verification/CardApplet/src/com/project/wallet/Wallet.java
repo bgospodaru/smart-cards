@@ -6,7 +6,13 @@ package com.project.wallet;
 
 import javacard.framework.*;
 import javacardx.annotations.*;
+
 import static com.project.wallet.WalletStrings.*;
+
+import javacard.security.AESKey;
+import javacard.security.Key;
+import javacard.security.KeyBuilder;
+import javacardx.crypto.Cipher;
 
 /**
  * Applet class
@@ -26,6 +32,7 @@ public class Wallet extends Applet {
     final static byte Wallet_CLA = (byte) 0x80;
 
     // codes of INS byte in the command APDU header
+    final static byte VERIFY_ENC = (byte) 0x10;
     final static byte VERIFY = (byte) 0x20;
     final static byte CREDIT = (byte) 0x30;
     final static byte DEBIT = (byte) 0x40;
@@ -47,6 +54,8 @@ public class Wallet extends Applet {
     // signal the PIN validation is required
     // for a credit or a debit transaction
     final static short SW_PIN_VERIFICATION_REQUIRED = 0x6301;
+    
+    final static short SW_DECRYPTION_FAILED = 0x6302;
     // signal invalid transaction amount
     // amount > MAX_TRANSACTION_AMOUNT or amount < 0
     final static short SW_INVALID_TRANSACTION_AMOUNT = 0x6A83;
@@ -55,14 +64,16 @@ public class Wallet extends Applet {
     final static short SW_EXCEED_MAXIMUM_BALANCE = 0x6A84;
     // signal the the balance becomes negative
     final static short SW_NEGATIVE_BALANCE = 0x6A85;
-
+    
+    final static byte[] key = {97, 110, 97, 95, 97, 114, 101, 95, 102, 97, 114, 102, 117, 114, 105, 105};
+    
     /* instance variables declaration */
     OwnerPIN pin;
     short balance;
     short points;
 
     private Wallet(byte[] bArray, short bOffset, byte bLength) {
-
+    	
         // It is good programming practice to allocate
         // all the memory that an applet needs during
         // its lifetime inside the constructor
@@ -150,6 +161,9 @@ public class Wallet extends Applet {
                 return;
             case VERIFY:
                 verify(apdu);
+                return;
+            case VERIFY_ENC:
+                verifyEncrypted(apdu);
                 return;
             default:
                 ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
@@ -311,4 +325,35 @@ public class Wallet extends Applet {
         }
 
     } // end of validate method
+    
+    private void verifyEncrypted(APDU apdu) {
+
+    	byte[] pin_iv = new byte[16];
+        byte[] buffer = apdu.getBuffer();
+        // retrieve the PIN data for validation.
+        byte byteRead = (byte) (apdu.setIncomingAndReceive());
+        
+        Key key = buildKey();
+        Cipher cipher = Cipher.getInstance(Cipher.ALG_AES_BLOCK_128_CBC_NOPAD, false);
+       
+        cipher.init(key, Cipher.MODE_DECRYPT, pin_iv, (short) 0, (short) 16);
+        cipher.doFinal(buffer, ISO7816.OFFSET_CDATA, (short) 16, buffer, (short) 0);
+        
+        apdu.setOutgoingAndSend((short) 0, (short) 5);
+        
+        // check pin
+        // the PIN data is read into the APDU buffer
+        // at the offset ISO7816.OFFSET_CDATA
+        // the PIN data length = byteRead
+        if (pin.check(buffer, (short) 0, (byte) 5) == false) {
+            ISOException.throwIt(SW_VERIFICATION_FAILED);
+        }
+
+    } // end of validate method
+    
+    private Key buildKey() {
+		Key builder = KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_DESELECT, KeyBuilder.LENGTH_AES_128, false);
+		((AESKey) builder).setKey(key, (short) 0);
+		return builder;
+	}
 }
