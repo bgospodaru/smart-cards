@@ -30,11 +30,17 @@ public class Terminal {
     
     private static String cap_path = "..\\CardApplet\\apdu_scripts\\cap-com.project.wallet.script";
     
+    private static byte[] balanceBytes = new byte[2];
+    private static short balance = 0;
+    
+    private static byte[] cvmCodes = new byte[8];
     private static byte[] pin = new byte[] {(byte) 0x01, (byte) 0x02, (byte) 0x03, (byte) 0x04, (byte) 0x05};
     private static byte[] key = "ana_are_farfurii".getBytes(); // idk men ran out of ideas
 
 	public static void main(String[] args) {
 		System.out.println("Terminal starting...");
+		
+		Terminal terminal = new Terminal();
 		
 		Security.addProvider(new BouncyCastleProvider());
 		
@@ -46,16 +52,38 @@ public class Terminal {
 			executeCap();
 			
 			System.out.println("Creating applet...");
-			exchangeApdu(createApplet());
+			terminal.exchangeApdu(terminal.createApplet());
 			System.out.println("Selecting wallet...");
-			exchangeApdu(selectWallet());
+			terminal.exchangeApdu(terminal.selectWallet());
 			
 			System.out.println("Verifying PIN plain text...");
-			exchangeApdu(verifyPIN());
+			terminal.exchangeApdu(terminal.verifyPIN());
 			System.out.println("Verifying PIN encrypted...");
-			exchangeApdu(verifyEncryptedPIN());
+			terminal.exchangeApdu(terminal.verifyEncryptedPIN());
 			System.out.println("Getting balance...");
-			exchangeApdu(getBalance());
+			terminal.exchangeApdu(terminal.getBalance());
+			
+			System.out.println("Getting CVM codes...");
+			cvmCodes = terminal.exchangeApdu(terminal.getCVM());
+
+			System.out.println("Debit 100$ (should fail)...");
+			terminal.exchangeApdu(terminal.debit((short) 100));
+
+			System.out.println("Verifying PIN plain text...");
+			terminal.exchangeApdu(terminal.verifyPIN());
+			System.out.println("Credit 200$...");
+			terminal.exchangeApdu(terminal.credit((short) 200));
+			System.out.println("Getting balance...");
+			balanceBytes = terminal.exchangeApdu(terminal.getBalance());
+			balance = (short) ((balanceBytes[0] & 0xFF) << 8 | (balanceBytes[1] & 0xFF));
+			System.out.println("Current balance: " + Short.toString(balance));
+
+			System.out.println("Debit 100$...");
+			terminal.exchangeApdu(terminal.debit((short) 100));
+			System.out.println("Getting balance...");
+			balanceBytes = terminal.exchangeApdu(terminal.getBalance());
+			balance = (short) ((balanceBytes[0] & 0xFF) << 8 | (balanceBytes[1] & 0xFF));
+			System.out.println("Current balance: " + Short.toString(balance));
 			
 			powerDown();
 		} catch (Exception e) {
@@ -127,15 +155,24 @@ public class Terminal {
 		reader.close();
 	}
 	
-	private static void exchangeApdu(Apdu apdu) throws IOException, CadTransportException {        
+	private byte[] exchangeApdu(Apdu apdu) throws IOException, CadTransportException {        
 		cad.exchangeApdu(apdu);
 		
 		System.out.println("-----------------");
         System.out.println(apdu);
-        System.out.println("-----------------\n");
+        
+        byte[] output = apdu.getDataOut();
+        for (int i = 0; i < output.length; i++) {
+        	System.out.print(output[i]);
+        	System.out.print(" ");
+        }
+        
+        System.out.println("\n-----------------\n");
+        
+        return output;
 	}
 	
-	private static Apdu createApplet() {
+	private Apdu createApplet() {
 		Apdu apdu = new Apdu();
 		
 		apdu.command = new byte[] {(byte) 0x80, (byte) 0xB8, (byte) 0x00, (byte) 0x00};
@@ -153,7 +190,7 @@ public class Terminal {
 		return apdu;
 	}
 	
-	private static Apdu selectWallet() {
+	private Apdu selectWallet() {
 		Apdu apdu = new Apdu();
 		
 		apdu.command = new byte[] {(byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00};
@@ -167,7 +204,7 @@ public class Terminal {
 		return apdu;
 	}
 	
-	private static Apdu verifyPIN() {
+	private Apdu verifyPIN() {
 		Apdu apdu = new Apdu();
 
 		apdu.command = new byte[] {(byte) 0x80, (byte) 0x20, (byte) 0x00, (byte) 0x00};
@@ -179,7 +216,7 @@ public class Terminal {
 		return apdu;
 	}
 	
-	private static Apdu verifyEncryptedPIN() throws GeneralSecurityException {
+	private Apdu verifyEncryptedPIN() throws GeneralSecurityException {
 		byte[] encryptedPIN = ecbEncryptPIN();
 		Apdu apdu = new Apdu();
 
@@ -195,7 +232,7 @@ public class Terminal {
 		return apdu;
 	}
 	
-	 public static byte[] ecbEncryptPIN() throws GeneralSecurityException {
+	 public byte[] ecbEncryptPIN() throws GeneralSecurityException {
 		byte[] initialValues = new byte[16];
 		Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
 		
@@ -206,16 +243,56 @@ public class Terminal {
         return cipher.doFinal(pin);
     }
 	
-	private static Apdu getBalance() {
+	private Apdu getBalance() {
 		Apdu apdu = new Apdu();
 		
 		apdu.command = new byte[] {(byte) 0x80, (byte) 0x50, (byte) 0x00, (byte) 0x00};
 		
-		apdu.Lc = (byte) 0x01;
-		apdu.dataIn = new byte[] {(byte) 0x01};
-		
+		apdu.Lc = (byte) 0x00;
 		apdu.Le = (byte) 0x02;
+		return apdu;
+	}
+	
+	private Apdu getCVM() {
+		Apdu apdu = new Apdu();
+		
+		apdu.command = new byte[] {(byte) 0x80, (byte) 0x60, (byte) 0x00, (byte) 0x00};
+		
+		apdu.Lc = (byte) 0x00;
+		apdu.Le = (byte) 0x08;
+		return apdu;
+	}
+	
+	private Apdu debit(short amount) {
+		Apdu apdu = new Apdu();
+		
+		apdu.command = new byte[] {(byte) 0x80, (byte) 0x40, (byte) 0x00, (byte) 0x00};
+		
+		apdu.Lc = (byte) 0x02;
+		
+		byte[] data = new byte[2];
+		data[0] = (byte)(amount >> 8);
+		data[1] = (byte) amount;
+		
+		apdu.dataIn = data;
 		 	
+		apdu.setDataIn(apdu.dataIn, apdu.Lc);
+		return apdu;
+	}
+	
+	private Apdu credit(short amount) {
+		Apdu apdu = new Apdu();
+		
+		apdu.command = new byte[] {(byte) 0x80, (byte) 0x30, (byte) 0x00, (byte) 0x00};
+		
+		apdu.Lc = (byte) 0x02;
+		
+		byte[] data = new byte[2];
+		data[0] = (byte)(amount >> 8);
+		data[1] = (byte) amount;
+		
+		apdu.dataIn = data;
+
 		apdu.setDataIn(apdu.dataIn, apdu.Lc);
 		return apdu;
 	}

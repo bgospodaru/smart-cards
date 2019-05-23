@@ -37,11 +37,12 @@ public class Wallet extends Applet {
     final static byte CREDIT = (byte) 0x30;
     final static byte DEBIT = (byte) 0x40;
     final static byte GET_BALANCE = (byte) 0x50;
+    final static byte GET_CVM = (byte) 0x60;
 
     // maximum balance
     final static short MAX_BALANCE = 0x2710; // 10.000 RON
     // maximum transaction amount
-    final static short MAX_TRANSACTION_AMOUNT = 600;
+    final static short MAX_TRANSACTION_AMOUNT = 0x258;
 
     // maximum number of incorrect tries before the
     // PIN is blocked
@@ -65,12 +66,23 @@ public class Wallet extends Applet {
     // signal the the balance becomes negative
     final static short SW_NEGATIVE_BALANCE = 0x6A85;
     
+    final static byte CONDITION1 = (byte) 0x01;
+    final static byte C1_LOWER_LIMIT = (byte) 0x00;
+    final static byte C1_UPPER_LIMIT = (byte) 0x32;
+    
+    final static byte CONDITION2 = (byte) 0x02;
+    final static byte C2_LOWER_LIMIT = (byte) 0x32;
+    final static byte C2_UPPER_LIMIT = (byte) 0x64;
+    
+    final static byte CONDITION3 = (byte) 0x03;
+    final static byte C3_LOWER_LIMIT = (byte) 0x64;
+    final static short C3_UPPER_LIMIT = MAX_TRANSACTION_AMOUNT;
+    
     final static byte[] key = {97, 110, 97, 95, 97, 114, 101, 95, 102, 97, 114, 102, 117, 114, 105, 105};
     
     /* instance variables declaration */
     OwnerPIN pin;
     short balance;
-    short points;
 
     private Wallet(byte[] bArray, short bOffset, byte bLength) {
     	
@@ -165,6 +177,9 @@ public class Wallet extends Applet {
             case VERIFY_ENC:
                 verifyEncrypted(apdu);
                 return;
+            case GET_CVM:
+                getCVM(apdu);
+                return;
             default:
                 ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
         }
@@ -213,13 +228,14 @@ public class Wallet extends Applet {
         balance = (short) (balance + creditAmount);
 
     } // end of deposit method
-
+    
     private void debit(APDU apdu) {
 
         // access authentication
         if (!pin.isValidated()) {
             ISOException.throwIt(SW_PIN_VERIFICATION_REQUIRED);
         }
+        pin.reset();
 
         byte[] buffer = apdu.getBuffer();
 
@@ -227,54 +243,28 @@ public class Wallet extends Applet {
 
         byte byteRead = (byte) (apdu.setIncomingAndReceive());
 
-        if ((numBytes != 3) || (byteRead != 3)) {
+        if ((numBytes != 2) || (byteRead != 2)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
-        short debitAmount = (short) ((buffer[ISO7816.OFFSET_CDATA + 1] & 0xFF)<<8 | (buffer[ISO7816.OFFSET_CDATA + 2] & 0xFF));
+        short debitAmount = (short) ((buffer[ISO7816.OFFSET_CDATA] & 0xFF)<<8 | (buffer[ISO7816.OFFSET_CDATA + 1] & 0xFF));
         
         // check debit amount
         if ((debitAmount > MAX_TRANSACTION_AMOUNT) || (debitAmount < 0)) {
             ISOException.throwIt(SW_INVALID_TRANSACTION_AMOUNT);
         }
-        
-        if (buffer[ISO7816.OFFSET_CDATA] == 0x01) {	
-	        // check the new balance
-	        if ((short) (balance - debitAmount) < (short) 0) {
-	            ISOException.throwIt(SW_NEGATIVE_BALANCE);
-	        }
-	
-	        balance = (short) (balance - debitAmount);
-	        
-	        short pointsToAdd = (short) (debitAmount / 20);
-	        points += pointsToAdd;
+     
+        if ((short) (balance - debitAmount) < (short) 0) {
+            ISOException.throwIt(SW_NEGATIVE_BALANCE);
         }
-        else if (buffer[ISO7816.OFFSET_CDATA] == 0x02) {
-	        // check the new points total
-	        if ((short) (points - debitAmount) < (short) 0) {
-	            ISOException.throwIt(SW_NEGATIVE_BALANCE);
-	        }
-	        
-	        points -= debitAmount;
-        }
-        else {
-        	ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
-        }
-        
+
+        balance = (short) (balance - debitAmount);      
     } // end of debit method
 
     private void getBalance(APDU apdu) {
 
         byte[] buffer = apdu.getBuffer();
         
-        byte numBytes = (buffer[ISO7816.OFFSET_LC]);
-
-        byte byteRead = (byte) (apdu.setIncomingAndReceive());
-
-        if ((numBytes != 1) || (byteRead != 1)) {
-            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-        }
-
         // inform system that the applet has finished
         // processing the command and the system should
         // now prepare to construct a response APDU
@@ -292,18 +282,9 @@ public class Wallet extends Applet {
         // move the balance data into the APDU buffer
         // starting at the offset 0
         
-        if (buffer[ISO7816.OFFSET_CDATA] == 0x01) {
-	        buffer[0] = (byte) (balance >> 8);
-	        buffer[1] = (byte) (balance & 0xFF);
-        }
-        else if (buffer[ISO7816.OFFSET_CDATA] == 0x02) {
-        	buffer[0] = (byte) (points >> 8);
-	        buffer[1] = (byte) (points & 0xFF);
-        }
-        else {
-        	ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
-        }
-
+	    buffer[0] = (byte) (balance >> 8);
+	    buffer[1] = (byte) (balance & 0xFF);
+	    
         // send the 2-byte balance at the offset
         // 0 in the apdu buffer
         apdu.sendBytes((short) 0, (short) 2);
@@ -332,6 +313,9 @@ public class Wallet extends Applet {
         byte[] buffer = apdu.getBuffer();
         // retrieve the PIN data for validation.
         byte byteRead = (byte) (apdu.setIncomingAndReceive());
+        if (byteRead != 16) {
+        	ISOException.throwIt(SW_VERIFICATION_FAILED);
+        }
         
         Key key = buildKey();
         Cipher cipher = Cipher.getInstance(Cipher.ALG_AES_BLOCK_128_CBC_NOPAD, false);
@@ -350,6 +334,32 @@ public class Wallet extends Applet {
         }
 
     } // end of validate method
+    
+
+    private void getCVM(APDU apdu) {
+    	byte[] buffer = apdu.getBuffer();
+    	
+    	short le = apdu.setOutgoing();
+
+        if (le != 8) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        
+        apdu.setOutgoingLength((byte) 8);
+
+        buffer[0] = CONDITION1;
+        buffer[1] = C1_LOWER_LIMIT;
+        buffer[2] = C1_UPPER_LIMIT;
+        
+        buffer[3] = CONDITION2;
+        buffer[4] = C2_LOWER_LIMIT;
+        buffer[5] = C2_UPPER_LIMIT;
+        
+        buffer[6] = CONDITION3;
+        buffer[7] = C3_LOWER_LIMIT;
+        
+        apdu.sendBytes((byte) 0, (byte) 8);
+    }
     
     private Key buildKey() {
 		Key builder = KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_DESELECT, KeyBuilder.LENGTH_AES_128, false);
