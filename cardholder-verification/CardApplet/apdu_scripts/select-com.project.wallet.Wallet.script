@@ -1,0 +1,12 @@
+// Copyright (c) 1998, 2019, Oracle and/or its affiliates. All rights reserved.
+
+// Applet Selection APDU Script
+//
+// Package:     com.project.wallet
+// Package AID: //aid/A000000062/03010C06
+// Applet:      Wallet
+// Applet AID:  //aid/A000000062/03010C0601
+//
+
+// Select Wallet applet
+0x00 0xA4 0x04 0x00 0x0A 0xA0 0x00 0x00 0x00 0x62 0x03 0x01 0x0C 0x06 0x01 0x7F;

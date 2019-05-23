@@ -1,0 +1,12 @@
+Digest for com/project/wallet/javacard/Debug.cap		[SHA-256: 608a9c07b00ce70b1731b8dd4262276a1a07324af924f4908ee4455523a799e8]
+Digest for com/project/wallet/javacard/RefLocation.cap		[SHA-256: 8e3aaf8609224eeba827d62e8e460bb562b6fa29fd4a21b961305856960e14f5]
+Digest for com/project/wallet/javacard/Import.cap		[SHA-256: a41a3b7fb146bf7bfe7692d82bb6084308e8793fb5a1b5acdda9167b8f79799e]
+Digest for com/project/wallet/javacard/Descriptor.cap		[SHA-256: 01f8ee5a07f178c06be1554d69e487af8abf2084d59a9db72d4d0c6f0d82c192]
+Digest for com/project/wallet/javacard/Directory.cap		[SHA-256: 51e0d4a64ae0711ecc1ee995d22c3b998d344dc40fe8c24fe2d189e87a4db575]
+Digest for com/project/wallet/javacard/Applet.cap		[SHA-256: d97fe53d6f5ad492741ce73d98a12734dcd519e23e1cba2bb9c8d01cd7252d19]
+Digest for com/project/wallet/javacard/Class.cap		[SHA-256: e99f65075fb62f52f443cffa05e51d4efd6397f41b3c2c0737f08ba1ef844d76]
+Digest for com/project/wallet/javacard/ConstantPool.cap		[SHA-256: 5cab2bb391bab948d8293702fc6a92793ebe9dea18986f7973c8cb4de24d280c]
+Digest for com/project/wallet/javacard/Method.cap		[SHA-256: f1f2fdadd1218bfdb2f10edec2985c2d71bd470b5896f6927b8c048a9df39df9]
+Digest for com/project/wallet/javacard/StaticField.cap		[SHA-256: 332dd824eda2814eacb26f7d5636aa0a87c43f9ece39d4b5982ae0b309f47564]
+Digest for com/project/wallet/javacard/Header.cap		[SHA-256: da8379c543281ed251a5a3c9753eeace6c383c4dfa6af4a396fcb9c14486f4f5]
+Verification completed with 0 warnings and 0 errors.
